@@ -172,6 +172,14 @@ def _list_cron_jobs() -> List[Dict[str, Any]]:
     return list(list_jobs(include_disabled=True) or [])
 
 
+def raw_cron_jobs() -> List[Dict[str, Any]]:
+    """Normalized job dicts as Hermes returns them (``[]`` when cron is unavailable)."""
+    try:
+        return [job for job in _list_cron_jobs() if isinstance(job, dict)]
+    except Exception:
+        return []
+
+
 def _cron_record(job: Dict[str, Any]) -> Dict[str, Any]:
     streak = job.get("failure_streak")
     try:

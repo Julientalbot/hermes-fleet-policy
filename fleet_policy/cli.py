@@ -23,7 +23,8 @@ def build_status() -> Dict[str, Any]:
     }
 
 
-def build_crons(get_setting: Optional[SettingsGetter] = None) -> Dict[str, Any]:
+def build_crons(get_setting: Optional[SettingsGetter] = None, *, cost: bool = False,
+                days: int = 7) -> Dict[str, Any]:
     allowed: List[str] = []
     if get_setting is not None:
         try:
@@ -33,12 +34,18 @@ def build_crons(get_setting: Optional[SettingsGetter] = None) -> Dict[str, Any]:
             allowed = []
     jobs = policy.cron_jobs()
     effective = policy.effective_values()
-    return {
+    report = {
         "plugin": PLUGIN_NAME,
         "version": __version__,
         "crons": jobs,
         "audit": policy.cron_audit(jobs, effective, allowed),
     }
+    if cost:  # optional block: existing keys and their order are unchanged
+        from . import cost as cost_mod
+
+        report["cost"] = cost_mod.build_cost(policy.raw_cron_jobs(), store.hermes_home(),
+                                             window_days=days)
+    return report
 
 
 def _print_json(payload: Dict[str, Any]) -> None:
@@ -81,6 +88,19 @@ def _render_crons(report: Dict[str, Any]) -> str:
         lines.append(f"- {finding['id']} {finding['name'] or ''}{flag}: " + "; ".join(finding["reasons"]))
     if audit["pinned_model"]:
         lines.append("Release a model pin with: hermes cron edit <id> --unpin")
+    cost = report.get("cost")
+    if cost:
+        lines.append(f"cost over {cost['window_days']} d (since {cost['since']}): "
+                     f"{cost['total_cost_per_day_usd']:.4f} $/day in total")
+        if not cost["sources"]["executions"] or not cost["sources"]["state_db"]:
+            lines.append(f"  sources: executions={cost['sources']['executions']} "
+                         f"state_db={cost['sources']['state_db']}")
+        for job in sorted(cost["jobs"], key=lambda j: -j["cost_per_day_usd"]):
+            share = "n/a" if job["empty_share"] is None else f"{job['empty_share']:.0%}"
+            lines.append(
+                f"  {job['id']} {job['name'] or ''}: {job['runs']} runs ({job['runs_per_day']}/day), "
+                f"empty {share}, {job['cost_per_day_usd']:.4f} $/day, gate={job['gate'] or 'none'}"
+                + (f"  [{', '.join(job['flags'])}]" if job["flags"] else ""))
     return "\n".join(lines)
 
 
@@ -90,6 +110,10 @@ def setup_parser(parser: argparse.ArgumentParser) -> None:
     status.add_argument("--json", action="store_true", help="Machine-readable output (stable contract)")
     crons = subs.add_parser("crons", help="Audit cron jobs: model/effort pins, failures, allow-list")
     crons.add_argument("--json", action="store_true", help="Machine-readable output")
+    crons.add_argument("--cost", action="store_true",
+                       help="Add measured runs, empty share and LLM cost per job (cron/executions.db "
+                            "+ state.db)")
+    crons.add_argument("--days", type=int, default=7, help="Window for --cost (default 7)")
     watch = subs.add_parser(
         "watch", help="Report NEW items of one MCP read tool, else print {\"wakeAgent\": false}",
         description="Call one MCP tool, report items whose id was never seen, stay silent "
@@ -108,7 +132,8 @@ def make_handler(get_setting: Optional[SettingsGetter] = None) -> Callable[[argp
             return watch.run(args.config, dry_run=bool(getattr(args, "dry_run", False)))
         as_json = bool(getattr(args, "json", False))
         if command == "crons":
-            report = build_crons(get_setting)
+            report = build_crons(get_setting, cost=bool(getattr(args, "cost", False)),
+                                 days=max(1, int(getattr(args, "days", 7) or 7)))
             _print_json(report) if as_json else print(_render_crons(report))
             return 0
         status = build_status()

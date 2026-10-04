@@ -49,22 +49,24 @@ Hermes plugins are **opt-in**: installing one does nothing until its name is lis
 
 ### A. Plugin folder (no pip; recommended for containers)
 
-Copy the `fleet_policy/` package directory to `$HERMES_HOME/plugins/fleet-policy/`. The folder
-must contain `plugin.yaml` and `__init__.py`.
+`fleet-policy-plugin-<version>.tar.gz` holds the plugin folder alone (top directory
+`fleet-policy/`, with `plugin.yaml` and `__init__.py`). Extract it into `$HERMES_HOME/plugins/`:
 
 ```bash
 mkdir -p "$HERMES_HOME/plugins"
-tar -xzf hermes-fleet-policy-0.1.0.tar.gz -C /tmp
-cp -r /tmp/hermes-fleet-policy-0.1.0/fleet_policy "$HERMES_HOME/plugins/fleet-policy"
-hermes plugins enable fleet-policy        # writes plugins.enabled in config.yaml
+tar -xzf fleet-policy-plugin-0.1.0.tar.gz -C "$HERMES_HOME/plugins"   # -> plugins/fleet-policy/
+hermes plugins enable fleet-policy        # appends to plugins.enabled in config.yaml
 hermes plugins list --plain | grep fleet-policy
 # enabled      user     0.1.0    fleet-policy
 ```
 
+From a source checkout, copying the `fleet_policy/` directory to
+`$HERMES_HOME/plugins/fleet-policy/` gives the same result.
+
 ### B. pip (entry point `hermes_agent.plugins`)
 
 ```bash
-/path/to/hermes/venv/bin/python -m pip install ./hermes-fleet-policy-0.1.0.tar.gz
+/path/to/hermes/venv/bin/python -m pip install ./hermes_fleet_policy-0.1.0-py3-none-any.whl
 hermes plugins enable fleet-policy
 hermes plugins list --plain | grep fleet-policy
 # enabled      entrypoint 0.1.0    fleet-policy
@@ -90,19 +92,25 @@ volume:
 
 ```bash
 C=<container>
-docker cp hermes-fleet-policy-0.1.0.tar.gz "$C":/tmp/
+docker cp fleet-policy-plugin-0.1.0.tar.gz "$C":/tmp/fleet-policy-plugin.tar.gz
 docker exec -u 10000 "$C" sh -c '
   set -e
-  mkdir -p /opt/data/plugins /tmp/fp
-  tar -xzf /tmp/hermes-fleet-policy-0.1.0.tar.gz -C /tmp/fp
+  mkdir -p /opt/data/plugins
   rm -rf /opt/data/plugins/fleet-policy
-  cp -r /tmp/fp/hermes-fleet-policy-0.1.0/fleet_policy /opt/data/plugins/fleet-policy
-  rm -rf /tmp/fp /tmp/hermes-fleet-policy-0.1.0.tar.gz'
+  tar -xzf /tmp/fleet-policy-plugin.tar.gz -C /opt/data/plugins
+  rm -f /tmp/fleet-policy-plugin.tar.gz'
 docker exec -u 10000 "$C" /opt/hermes/.venv/bin/hermes plugins enable fleet-policy
 docker exec -u 10000 "$C" /opt/hermes/.venv/bin/hermes plugins list --plain | grep fleet-policy
-docker restart "$C"    # long-running gateway processes load plugins at start
+#   enabled      user     0.1.0    fleet-policy
+docker restart "$C"    # the gateway and cron ticker load plugins at start
 docker exec -u 10000 "$C" /opt/hermes/.venv/bin/hermes fleet-policy status --json
 ```
+
+`-u 10000` keeps every file under `/opt/data` owned by the `hermes` user. If you run the commands
+as root, the image's `/opt/hermes/bin/hermes` shim drops to that user for `hermes ...` calls, but
+`tar` and `cp` do not. Fleet-wide activation without touching each `config.yaml`: put
+`plugins.enabled: [fleet-policy, ...]` in the managed `config.yaml` instead of running
+`plugins enable`.
 
 ## Output contract (`status --json`)
 
@@ -210,6 +218,16 @@ python tests/e2e_harness.py /path/to/venv/bin/hermes   # same scenario, prints e
 The end-to-end tests start `tests/fake_provider.py`, a local OpenAI-compatible stub on 127.0.0.1,
 inside a throwaway `HERMES_HOME`. They then run real `hermes -z` turns, a delegated sub-agent, and
 a real `hermes cron run`, and check `status --json` after each one.
+
+## Building the release artifacts
+
+```bash
+python scripts/build_dist.py [OUT_DIR]   # default ./dist
+```
+
+This produces `fleet-policy-plugin-<v>.tar.gz` (the plugin folder, for `$HERMES_HOME/plugins/`),
+`hermes_fleet_policy-<v>.tar.gz` and `-py3-none-any.whl` (pip), and `SHA256SUMS`. It uses
+`uv build` when available, `python -m build` otherwise.
 
 ## License
 

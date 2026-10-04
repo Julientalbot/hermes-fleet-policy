@@ -71,7 +71,14 @@ class Env:
 
 
 @contextlib.contextmanager
-def hermes_env(hermes: str, *, install: str = "dir") -> Iterator[Env]:
+def hermes_env(hermes: str, *, install: str = "dir", tier_extra_body: bool = False,
+               streaming: bool = True) -> Iterator[Env]:
+    """``install="dir"`` copies the plugin to ``$HERMES_HOME/plugins/fleet-policy`` (no pip);
+    ``install="entrypoint"`` relies on ``pip install`` into the Hermes venv.
+    ``tier_extra_body`` pins ``service_tier: priority`` through ``custom_providers[].extra_body``;
+    ``streaming=False`` sets ``model.streaming: false``: Hermes then returns the provider's own
+    response object, so the served ``service_tier`` reaches the ``llm_execution`` observer (the
+    streamed path rebuilds a SimpleNamespace without it)."""
     root = Path(tempfile.mkdtemp(prefix="fleet-policy-e2e-"))
     proc: Optional[subprocess.Popen] = None
     try:
@@ -94,6 +101,7 @@ def hermes_env(hermes: str, *, install: str = "dir") -> Iterator[Env]:
             "  provider: custom\n"
             f"  base_url: http://127.0.0.1:{port}/v1\n"
             "  default: stub-model\n"
+            + ("" if streaming else "  streaming: false\n") +
             "agent:\n"
             "  reasoning_effort: low\n"
             "plugins:\n"
@@ -102,6 +110,11 @@ def hermes_env(hermes: str, *, install: str = "dir") -> Iterator[Env]:
             "    fleet-policy:\n"
             "      settings:\n"
             "        allowed_cron_models: [stub-model]\n"
+            + ("custom_providers:\n"
+               "  - name: stub\n"
+               f"    base_url: http://127.0.0.1:{port}/v1\n"
+               "    extra_body:\n"
+               "      service_tier: priority\n" if tier_extra_body else "")
         )
         (env.home / ".env").write_text("OPENAI_API_KEY=stub-key-not-a-secret\n")
         (env.managed / "config.yaml").write_text(MANAGED_YAML)
@@ -117,7 +130,10 @@ def hermes_env(hermes: str, *, install: str = "dir") -> Iterator[Env]:
 
 def main() -> int:
     hermes = sys.argv[1] if len(sys.argv) > 1 else shutil.which("hermes") or "hermes"
-    with hermes_env(hermes) as env:
+    install = sys.argv[2] if len(sys.argv) > 2 else "dir"
+    with hermes_env(hermes, install=install, tier_extra_body=True, streaming=False) as env:
+        print("$ hermes plugins list --plain")
+        print(env.run("plugins", "list", "--plain").stdout)
         print("$ hermes fleet-policy status --json   # before any request")
         print(json.dumps(env.status(), indent=2))
         chat = env.run("-z", "ping")

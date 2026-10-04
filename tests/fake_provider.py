@@ -4,6 +4,9 @@ Answers ``POST /v1/chat/completions`` (JSON or SSE) with a fixed reply and echoe
 ``service_tier`` back as the served tier. Each request body is appended to ``$STUB_LOG`` so the
 test can compare what Hermes really sent with what the plugin recorded.
 
+A user message containing ``DELEGATE-ME`` (with no tool result yet) is answered with a
+``delegate_task`` tool call, so the test also drives a real sub-agent (role ``delegation``).
+
 Run: ``python fake_provider.py <port-file> <log-file>``.
 """
 import json
@@ -41,12 +44,18 @@ class Handler(BaseHTTPRequestHandler):
         tier = body.get("service_tier") or "default"
         model = body.get("model") or "stub-model"
         usage = {"prompt_tokens": 10, "completion_tokens": 2, "total_tokens": 12}
+        message = {"role": "assistant", "content": "pong"}
+        finish = "stop"
+        if _wants_delegation(body):
+            message = {"role": "assistant", "content": None, "tool_calls": [{
+                "id": "call_stub_1", "type": "function", "function": {
+                    "name": "delegate_task", "arguments": json.dumps({"goal": "Reply with pong."})}}]}
+            finish = "tool_calls"
         if not body.get("stream"):
             return self._send_json(200, {
                 "id": "chatcmpl-stub", "object": "chat.completion", "created": int(time.time()),
                 "model": model, "service_tier": tier,
-                "choices": [{"index": 0, "finish_reason": "stop",
-                             "message": {"role": "assistant", "content": "pong"}}],
+                "choices": [{"index": 0, "finish_reason": finish, "message": message}],
                 "usage": usage,
             })
         self.send_response(200)
@@ -64,6 +73,15 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode())
         self.wfile.write(b"data: [DONE]\n\n")
         self.wfile.flush()
+
+
+def _wants_delegation(body):
+    messages = body.get("messages") or []
+    if any(isinstance(m, dict) and m.get("role") == "tool" for m in messages):
+        return False
+    tools = {((t or {}).get("function") or {}).get("name") for t in body.get("tools") or []}
+    users = [m for m in messages if isinstance(m, dict) and m.get("role") == "user"]
+    return "delegate_task" in tools and bool(users) and "DELEGATE-ME" in str(users[-1].get("content"))
 
 
 def main():

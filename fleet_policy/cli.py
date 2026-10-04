@@ -90,11 +90,22 @@ def setup_parser(parser: argparse.ArgumentParser) -> None:
     status.add_argument("--json", action="store_true", help="Machine-readable output (stable contract)")
     crons = subs.add_parser("crons", help="Audit cron jobs: model/effort pins, failures, allow-list")
     crons.add_argument("--json", action="store_true", help="Machine-readable output")
+    watch = subs.add_parser(
+        "watch", help="Report NEW items of one MCP read tool, else print {\"wakeAgent\": false}",
+        description="Call one MCP tool, report items whose id was never seen, stay silent "
+                    "otherwise. Meant as the pre-run script of a cron job (stock wake gate).")
+    watch.add_argument("--config", required=True, help="Watch config (JSON), see README")
+    watch.add_argument("--dry-run", action="store_true",
+                       help="Show what would be reported; never write the state")
 
 
 def make_handler(get_setting: Optional[SettingsGetter] = None) -> Callable[[argparse.Namespace], int]:
     def handle(args: argparse.Namespace) -> int:
         command = getattr(args, "fleet_policy_command", None) or "status"
+        if command == "watch":
+            from . import watch
+
+            return watch.run(args.config, dry_run=bool(getattr(args, "dry_run", False)))
         as_json = bool(getattr(args, "json", False))
         if command == "crons":
             report = build_crons(get_setting)

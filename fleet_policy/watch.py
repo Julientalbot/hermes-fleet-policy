@@ -470,5 +470,6 @@ def run(config_path: str, *, dry_run: bool = False, call: Optional[Caller] = Non
 
 
 def script_line(config: "str | Path", *, python: str, plugin_dir: str) -> str:
-    """The one line of ``$HERMES_HOME/scripts/watch-<name>.sh`` (cron scripts take no args)."""
-    return f"exec {python} {plugin_dir} watch --config {config}"
+    """The one line of ``$HERMES_HOME/scripts/watch-<name>.sh``. Cron passes no argument; ``"$@"``
+    lets a human run ``bash watch-<name>.sh --dry-run``."""
+    return f'exec {python} {plugin_dir} watch --config {config} "$@"'

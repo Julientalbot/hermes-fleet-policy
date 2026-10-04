@@ -215,7 +215,7 @@ def test_script_line(tmp_path):
     line = watch.script_line(tmp_path / "w.json", python="/opt/hermes/.venv/bin/python",
                              plugin_dir="/opt/data/plugins/fleet-policy")
     assert line == ("exec /opt/hermes/.venv/bin/python /opt/data/plugins/fleet-policy watch "
-                    f"--config {tmp_path / 'w.json'}")
+                    f"--config {tmp_path / 'w.json'} \"$@\"")
 
 
 def test_parse_mcp_result():

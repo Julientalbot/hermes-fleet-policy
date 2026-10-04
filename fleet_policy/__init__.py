@@ -6,7 +6,8 @@ reasoning effort and service tier of the last real provider request, and exposes
 managed-scope state, the effective config and the cron jobs::
 
     hermes fleet-policy status --json
-    hermes fleet-policy crons --json
+    hermes fleet-policy crons --json [--cost]
+    hermes fleet-policy watch --config <watch.json> [--dry-run]
 
 Public surfaces only: ``ctx.register_hook``, ``ctx.register_middleware`` (observer pass-through),
 ``ctx.register_cli_command``, ``ctx.register_skill``, ``ctx.get_config``; plus the public
@@ -20,6 +21,10 @@ from pathlib import Path
 
 __version__ = "0.1.0"
 PLUGIN_NAME = "fleet-policy"
+SKILLS = (
+    ("fleet-policy-admin", "Administer a managed Hermes policy and verify it."),
+    ("recurring-tasks", "Watch jobs that wake the model only on new items."),
+)
 
 logger = logging.getLogger(__name__)
 
@@ -52,10 +57,11 @@ def register(ctx) -> None:
                     "request per role, and audit cron jobs.",
     )
 
-    skill_md = Path(__file__).parent / "skills" / "fleet-policy-admin" / "SKILL.md"
-    if skill_md.is_file():
+    for name, description in SKILLS:
+        skill_md = Path(__file__).parent / "skills" / name / "SKILL.md"
+        if not skill_md.is_file():
+            continue
         try:
-            ctx.register_skill("fleet-policy-admin", skill_md,
-                               description="Administer a managed Hermes policy and verify it.")
+            ctx.register_skill(name, skill_md, description=description)
         except Exception:
-            logger.debug("fleet-policy: skill registration skipped", exc_info=True)
+            logger.debug("fleet-policy: skill %s registration skipped", name, exc_info=True)

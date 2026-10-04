@@ -1,0 +1,24 @@
+name: fleet-policy
+version: 0.1.0
+api_version: 1
+description: "Observe what a Hermes agent actually sends to its LLM provider (model, reasoning effort, service tier, per role) and report it next to the managed-scope policy and cron jobs."
+author: Julien Talbot
+license: MIT
+homepage: https://github.com/Julientalbot/hermes-fleet-policy
+tags: [automation, managed-scope, fleet, observability, cron]
+requires_hermes: ">=0.21.5"
+provides_tools: []
+provides_hooks:
+  - pre_api_request
+  - pre_auxiliary_call
+provides_middleware:
+  - llm_execution
+config_schema:
+  observe_execution:
+    type: bool
+    default: true
+    description: "Also observe through an llm_execution pass-through middleware (full request + the service tier the provider says it served). Off = hooks only."
+  allowed_cron_models:
+    type: list
+    default: []
+    description: "Optional allow-list of model ids for cron job pins; `hermes fleet-policy crons` flags pins outside it."

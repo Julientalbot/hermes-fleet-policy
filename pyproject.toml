@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hermes-fleet-policy"
+version = "0.1.0"
+description = "Hermes Agent plugin: observe what is actually sent to the LLM provider (model, effort, service tier per role) next to the managed-scope policy and cron jobs."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Julien Talbot" }]
+requires-python = ">=3.11"
+# No runtime dependency: the plugin runs inside Hermes and only uses what Hermes ships.
+dependencies = []
+keywords = ["hermes-agent", "plugin", "managed-scope", "fleet", "observability"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/Julientalbot/hermes-fleet-policy"
+
+[project.entry-points."hermes_agent.plugins"]
+fleet-policy = "fleet_policy:register"
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10"]
+
+[tool.setuptools]
+packages = ["fleet_policy"]
+
+[tool.setuptools.package-data]
+fleet_policy = ["plugin.yaml", "skills/*/SKILL.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

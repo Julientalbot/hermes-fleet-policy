@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hermes-fleet-policy"
-version = "0.1.0"
-description = "Hermes Agent plugin: observe what is actually sent to the LLM provider (model, effort, service tier per role) next to the managed-scope policy and cron jobs."
+version = "0.2.0"
+description = "Hermes Agent plugin: observe what is actually sent to the LLM provider next to the managed-scope policy, measure cron cost per job, and watch MCP read tools for new items (stock wakeAgent gate)."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -13,7 +13,7 @@ authors = [{ name = "Julien Talbot" }]
 requires-python = ">=3.11"
 # No runtime dependency: the plugin runs inside Hermes and only uses what Hermes ships.
 dependencies = []
-keywords = ["hermes-agent", "plugin", "managed-scope", "fleet", "observability"]
+keywords = ["hermes-agent", "plugin", "managed-scope", "fleet", "observability", "cron", "mcp"]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Operating System :: OS Independent",

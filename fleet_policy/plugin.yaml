@@ -1,11 +1,11 @@
 name: fleet-policy
-version: 0.1.0
+version: 0.2.0
 api_version: 1
-description: "Observe what a Hermes agent actually sends to its LLM provider (model, reasoning effort, service tier, per role) and report it next to the managed-scope policy and cron jobs."
+description: "Observe what a Hermes agent actually sends to its LLM provider (model, reasoning effort, service tier, per role) next to the managed-scope policy; measure cron cost per job; watch any MCP read tool and wake the agent only on new items."
 author: Julien Talbot
 license: MIT
 homepage: https://github.com/Julientalbot/hermes-fleet-policy
-tags: [automation, managed-scope, fleet, observability, cron]
+tags: [automation, managed-scope, fleet, observability, cron, monitor, mcp]
 requires_hermes: ">=0.21.5"
 provides_tools: []
 provides_hooks:

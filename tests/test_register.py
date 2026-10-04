@@ -43,7 +43,17 @@ def test_skill_frontmatter():
 
     text = (Path(fleet_policy.__file__).parent / "skills" / "recurring-tasks" / "SKILL.md").read_text()
     head = text.split("---")[1]
-    assert "name: recurring-tasks" in head
+    assert "name: recurring-tasks" in head and "version: " + fleet_policy.__version__ in head
     for needle in ("wakeAgent", "COMPOSIO_MULTI_EXECUTE_TOOL", "monitor_url", "--dry-run",
                    "watch-<name>.sh", "[SILENT]"):
         assert needle in text
+
+
+def test_versions_agree():
+    import re
+    from pathlib import Path
+
+    root = Path(fleet_policy.__file__).resolve().parents[1]
+    yaml_v = re.search(r"^version: (\S+)", (root / "fleet_policy" / "plugin.yaml").read_text(), re.M)
+    toml_v = re.search(r'^version = "([^"]+)"', (root / "pyproject.toml").read_text(), re.M)
+    assert yaml_v.group(1) == toml_v.group(1) == fleet_policy.__version__

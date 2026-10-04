@@ -39,8 +39,13 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length") or 0)
         body = json.loads(self.rfile.read(length) or b"{}")
         with open(self.log_file, "a", encoding="utf-8") as fh:
-            fh.write(json.dumps({k: body.get(k) for k in (
-                "model", "reasoning_effort", "service_tier", "reasoning", "stream")}) + "\n")
+            entry = {k: body.get(k) for k in (
+                "model", "reasoning_effort", "service_tier", "reasoning", "stream")}
+            users = [m for m in body.get("messages") or [] if isinstance(m, dict)
+                     and m.get("role") == "user"]
+            content = users[-1].get("content") if users else None
+            entry["last_user"] = content if isinstance(content, str) else json.dumps(content)
+            fh.write(json.dumps(entry) + "\n")
         tier = body.get("service_tier") or "default"
         model = body.get("model") or "stub-model"
         usage = {"prompt_tokens": 10, "completion_tokens": 2, "total_tokens": 12}

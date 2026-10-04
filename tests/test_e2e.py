@@ -9,6 +9,8 @@ Opt-in (spawns Hermes, ~20 s per target)::
 """
 import json
 import os
+import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -99,3 +101,24 @@ def test_broken_managed_config_is_reported(env, content, needle):
     (env.managed / "config.yaml").write_text(content)
     managed = env.status()["managed"]
     assert managed["keys"] == 0 and needle in managed["error"]
+
+
+def test_isolation_host_hooks_and_standalone_cli(env):
+    """Recent Hermes: ``plugins.isolation: host`` runs the plugin out of process and skips
+    ``register_cli_command``. Hooks still record; ``python <plugin-dir>`` replaces the command."""
+    python = str(Path(env.hermes).with_name("python"))
+    probe = subprocess.run([python, "-c", "import hermes_cli.plugin_isolation"], capture_output=True)
+    if probe.returncode != 0:
+        pytest.skip("this Hermes has no plugins.isolation")
+    cfg = env.home / "config.yaml"
+    cfg.write_text(cfg.read_text().replace("plugins:\n", "plugins:\n  isolation: host\n"))
+    assert env.run("-z", "ping").returncode == 0
+    plugin_dir = env.home / "plugins" / "fleet-policy"
+    target = [str(plugin_dir)] if plugin_dir.is_dir() else ["-m", "fleet_policy"]
+    proc = subprocess.run([python, *target, "status", "--json"], env=env.env(),
+                          capture_output=True, text=True, timeout=60)
+    assert proc.returncode == 0, proc.stderr
+    status = json.loads(proc.stdout)
+    assert list(status) == CONTRACT_KEYS
+    assert status["observed"]["main"]["service_tier"] == "priority"
+    assert status["observed"]["main"]["reasoning_effort"] == "high"

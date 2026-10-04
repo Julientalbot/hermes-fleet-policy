@@ -246,7 +246,7 @@ name of the id field.
 
 | Key | Meaning |
 |---|---|
-| `server_url` | streamable-HTTP MCP endpoint (required) |
+| `server_url` | streamable-HTTP MCP endpoint. Required unless an administrator pinned `plugins.entries.fleet-policy.settings.watch_server_url` (managed scope): then omit it — the pinned endpoint is used and any other is refused (exit 2) |
 | `tool`, `arguments` | the tool call (required / default `{}`). Use a **read** tool. |
 | `id_field` | field that identifies an item (required) |
 | `show_fields` | fields printed for each new item; `a.b` follows a path, a bare name is searched in the item (default `[]`) |

@@ -100,6 +100,21 @@ def _positive_int(raw: Dict[str, Any], key: str, default: int) -> int:
     return value
 
 
+SERVER_URL_SETTING = "watch_server_url"
+
+
+def pinned_server_url() -> Optional[str]:
+    """Endpoint an administrator pinned for every watch (``plugins.entries.fleet-policy.settings.watch_server_url``,
+    typically through the managed scope), read from the EFFECTIVE config; ``None`` when unset or unreadable."""
+    try:
+        from . import policy
+        value = policy._dig(policy._load_effective_config(),
+                            f"plugins.entries.fleet-policy.settings.{SERVER_URL_SETTING}")
+    except Exception:
+        return None
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
 def load_config(path: "str | Path") -> WatchConfig:
     path = Path(path).expanduser()
     try:
@@ -111,8 +126,15 @@ def load_config(path: "str | Path") -> WatchConfig:
     if not isinstance(raw, dict):
         raise ConfigError(f"{path}: top level must be a JSON object")
     server_url = raw.get("server_url")
+    pinned = pinned_server_url()
+    if pinned:
+        # An administrator-pinned endpoint (e.g. a read-only tool session) is the only one a watch may use.
+        if server_url not in (None, "", pinned):
+            raise ConfigError(f"'server_url' is pinned by the administrator to {pinned}; remove it from the config")
+        server_url = pinned
     if not isinstance(server_url, str) or not server_url.startswith(("http://", "https://")):
-        raise ConfigError("'server_url' must be an http(s) URL of a streamable-HTTP MCP endpoint")
+        raise ConfigError("'server_url' must be an http(s) URL of a streamable-HTTP MCP endpoint "
+                          f"(or pinned via plugins.entries.fleet-policy.settings.{SERVER_URL_SETTING})")
     tool = raw.get("tool")
     if not isinstance(tool, str) or not tool.strip():
         raise ConfigError("'tool' must name the MCP tool to call")

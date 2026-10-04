@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hermes-fleet-policy"
-version = "0.2.0"
+version = "0.2.1"
 description = "Hermes Agent plugin: observe what is actually sent to the LLM provider next to the managed-scope policy, measure cron cost per job, and watch MCP read tools for new items (stock wakeAgent gate)."
 readme = "README.md"
 license = "MIT"

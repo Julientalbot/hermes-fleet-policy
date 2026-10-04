@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 PLUGIN_NAME = "fleet-policy"
 SKILLS = (
     ("fleet-policy-admin", "Administer a managed Hermes policy and verify it."),

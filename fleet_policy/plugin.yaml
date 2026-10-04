@@ -1,5 +1,5 @@
 name: fleet-policy
-version: 0.2.0
+version: 0.2.1
 api_version: 1
 description: "Observe what a Hermes agent actually sends to its LLM provider (model, reasoning effort, service tier, per role) next to the managed-scope policy; measure cron cost per job; watch any MCP read tool and wake the agent only on new items."
 author: Julien Talbot
@@ -18,6 +18,10 @@ config_schema:
     type: bool
     default: true
     description: "Also observe through an llm_execution pass-through middleware (full request + the service tier the provider says it served). Off = hooks only."
+  watch_server_url:
+    type: str
+    default: ""
+    description: "MCP endpoint every `watch` must use (e.g. a read-only tool session). Set it in the managed scope: watch configs then omit server_url, and a different one is refused."
   allowed_cron_models:
     type: list
     default: []

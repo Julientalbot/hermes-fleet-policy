@@ -1,7 +1,7 @@
 ---
 name: recurring-tasks
 description: Watch jobs that wake the model only on new items.
-version: 0.2.0
+version: 0.2.1
 author: Julien Talbot
 license: MIT
 metadata:
@@ -46,8 +46,11 @@ find nothing and still cost a full turn.
     "state": "<name>.state.json"}
    ```
 
-   `server_url` is the `url` of the MCP server in `config.yaml` (`mcp_servers.<name>.url`). If it
-   needs a header, put `"headers": {"Authorization": "Bearer ${ENV_VAR}"}` — never a literal secret.
+   **First run `hermes config get plugins.entries.fleet-policy.settings.watch_server_url`.** If it is set,
+   your administrator pinned a (read-only) endpoint: **omit `server_url`** from the config — `watch` uses the
+   pinned one and refuses any other. Only when it is empty, `server_url` is the `url` of the MCP server in
+   `config.yaml` (`mcp_servers.<name>.url`). If it needs a header, put
+   `"headers": {"Authorization": "Bearer ${ENV_VAR}"}` — never a literal secret.
 3. **Write a one-line script** `$HERMES_HOME/scripts/watch-<name>.sh` (cron scripts take no
    arguments, so the config path is in the line):
 
@@ -74,8 +77,7 @@ reports the error instead of going quiet, and nothing is marked as seen.
 Composio exposes apps through `COMPOSIO_MULTI_EXECUTE_TOOL`; the app tool is the `tool_slug`:
 
 ```json
-{"server_url": "http://composio-relay:8787/mcp",
- "tool": "COMPOSIO_MULTI_EXECUTE_TOOL",
+{"tool": "COMPOSIO_MULTI_EXECUTE_TOOL",
  "arguments": {"tools": [{"tool_slug": "GMAIL_FETCH_EMAILS",
                           "arguments": {"query": "newer_than:2d", "max_results": 25,
                                         "include_payload": false}}],
@@ -84,7 +86,8 @@ Composio exposes apps through `COMPOSIO_MULTI_EXECUTE_TOOL`; the app tool is the
  "state": "inbox.state.json"}
 ```
 
-Prefer a Composio session restricted to read-only tools (`readOnlyHint`) for watches.
+No `server_url`: it comes from the pinned `watch_server_url`, which should point to a Composio session restricted
+to read-only tools (`tags: ["readOnlyHint"]`) — a watch can then never send, write or delete.
 
 ### Example: any other MCP server
 

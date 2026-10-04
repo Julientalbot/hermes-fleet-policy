@@ -272,3 +272,54 @@ def test_standalone_entry_point_routes_watch(tmp_path):
     proc = subprocess.run([sys.executable, str(plugin_dir), "watch", "--config", str(bad)],
                           capture_output=True, text=True, timeout=60)
     assert proc.returncode == 2 and "invalid config" in proc.stderr and proc.stdout == ""
+
+
+# ── admin-pinned endpoint (plugins.entries.fleet-policy.settings.watch_server_url, managed scope) ──
+
+PINNED = "http://relay:8788/mcp"
+
+
+def _no_url_config(tmp_path, **extra):
+    path = _config(tmp_path, **extra)
+    raw = json.loads(path.read_text())
+    raw.pop("server_url")
+    path.write_text(json.dumps(raw))
+    return path
+
+
+def test_pinned_url_is_the_default_when_config_has_none(tmp_path, capsys, monkeypatch):
+    monkeypatch.setattr(watch, "pinned_server_url", lambda: PINNED)
+    fake = Fake(_items("a"))
+    code, out, err = run(_no_url_config(tmp_path), fake, capsys)
+    assert code == 0, err
+    assert fake.calls[0][0] == PINNED
+
+
+def test_pinned_url_cannot_be_overridden(tmp_path, capsys, monkeypatch):
+    monkeypatch.setattr(watch, "pinned_server_url", lambda: PINNED)
+    fake = Fake(_items("a"))
+    code, out, err = run(_config(tmp_path, server_url="http://relay:8787/mcp"), fake, capsys)
+    assert code == 2
+    assert "pinned by the administrator" in err
+    assert fake.calls == []
+
+
+def test_same_url_as_pinned_is_accepted(tmp_path, capsys, monkeypatch):
+    monkeypatch.setattr(watch, "pinned_server_url", lambda: PINNED)
+    code, _, err = run(_config(tmp_path, server_url=PINNED), Fake(_items("a")), capsys)
+    assert code == 0, err
+
+
+def test_no_pin_and_no_url_is_a_config_error(tmp_path, capsys, monkeypatch):
+    monkeypatch.setattr(watch, "pinned_server_url", lambda: None)
+    code, _, err = run(_no_url_config(tmp_path), Fake(_items("a")), capsys)
+    assert code == 2 and "server_url" in err
+
+
+def test_pinned_server_url_reads_effective_plugin_setting(monkeypatch):
+    from fleet_policy import policy
+    monkeypatch.setattr(policy, "_load_effective_config", lambda: {
+        "plugins": {"entries": {"fleet-policy": {"settings": {"watch_server_url": PINNED}}}}})
+    assert watch.pinned_server_url() == PINNED
+    monkeypatch.setattr(policy, "_load_effective_config", lambda: {"plugins": {}})
+    assert watch.pinned_server_url() is None

@@ -17,17 +17,48 @@ _PLATFORM_ROLES = {"cron": "cron", "subagent": "delegation"}
 _AUX_TASK_SAFE = re.compile(r"[^A-Za-z0-9_.:-]+")
 
 
+# Background review fork (agent/background_review.py, v0.22.2 and v0.22.5): it shares the parent's platform and
+# session, so without this it is recorded as the conversation ("main") — with the routed review model (politique
+# 1.8.2 : grok-4.3) the probe would flag every seat. Every Hermes review prompt starts with this sentence.
+REVIEW_ROLE = "background_review"
+_REVIEW_PROMPT_PREFIX = "Review the conversation above and "
+
+
+def _is_review_fork(kwargs: Mapping[str, Any]) -> bool:
+    msg = kwargs.get("user_message")
+    if isinstance(msg, str) and msg.startswith(_REVIEW_PROMPT_PREFIX):
+        return True
+    # ``llm_execution`` middleware carries no user_message but runs in the caller's thread: the fork's AIAgent is a
+    # local ``agent`` of agent/turn_api_call.py, tagged ``_turn_origin = "background_review"`` (#118693).
+    try:
+        import sys
+        frame = sys._getframe(2)
+        for _ in range(30):
+            if frame is None:
+                break
+            agent = frame.f_locals.get("agent")
+            if agent is not None and getattr(agent, "_turn_origin", None) == REVIEW_ROLE:
+                return True
+            frame = frame.f_back
+    except Exception:  # noqa: BLE001 - observation only
+        return False
+    return False
+
+
 def role_for_main_loop(kwargs: Mapping[str, Any]) -> str:
     """Role for a main-loop call (``pre_api_request`` / ``llm_execution`` middleware).
 
     ``platform`` is always passed by Hermes ("" outside a gateway/cron/subagent); a payload
-    without the key at all means a caller we do not know, hence ``"unknown"``.
+    without the key at all means a caller we do not know, hence ``"unknown"``. The background
+    review fork gets its own role (``background_review``).
     """
     if "platform" not in kwargs:
         return UNKNOWN_ROLE
     platform = kwargs.get("platform")
     if not isinstance(platform, str):
         return UNKNOWN_ROLE
+    if _is_review_fork(kwargs):
+        return REVIEW_ROLE
     return _PLATFORM_ROLES.get(platform.strip().lower(), "main")
 
 

@@ -80,3 +80,28 @@ def test_store_unreadable_is_empty(tmp_path):
     path = tmp_path / "observed.json"
     path.write_text("{not json")
     assert store.read_observed(path) == {}
+
+
+# --- background review fork: its own role (it shares the parent's platform and session) ----------------------
+
+def test_review_fork_from_hook_user_message():
+    from fleet_policy import extract
+    kw = {"platform": "telegram", "user_message": "Review the conversation above and consider saving to memory"}
+    assert extract.role_for_main_loop(kw) == "background_review"
+
+
+def test_review_fork_from_middleware_caller_agent():
+    from fleet_policy import extract
+
+    class Fork:
+        _turn_origin = "background_review"
+
+    class Live:
+        _turn_origin = None
+
+    def hermes_turn_api_call(agent):  # same shape as agent/turn_api_call.py (local ``agent``)
+        return extract.role_for_main_loop({"platform": "telegram"})
+
+    assert hermes_turn_api_call(Fork()) == "background_review"
+    assert hermes_turn_api_call(Live()) == "main"
+    assert extract.role_for_main_loop({"platform": "cron", "user_message": "x"}) == "cron"

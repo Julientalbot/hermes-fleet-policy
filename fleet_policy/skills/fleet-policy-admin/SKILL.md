@@ -1,7 +1,7 @@
 ---
 name: fleet-policy-admin
 description: Pin org-wide Hermes settings and verify what is sent.
-version: 0.2.1
+version: 0.3.0
 license: MIT
 metadata:
   hermes:

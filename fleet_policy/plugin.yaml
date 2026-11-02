@@ -1,7 +1,7 @@
 name: fleet-policy
-version: 0.2.1
+version: 0.3.0
 api_version: 1
-description: "Observe what a Hermes agent actually sends to its LLM provider (model, reasoning effort, service tier, per role) next to the managed-scope policy; measure cron cost per job; watch any MCP read tool and wake the agent only on new items."
+description: "Observe what a Hermes agent actually sends to its LLM provider (model, reasoning effort, service tier, per role) next to the managed-scope policy; measure cron cost per job; refuse ungated frequent agent jobs at creation (opt-in); watch any MCP read tool and wake the agent only on new items."
 author: Julien Talbot
 license: MIT
 homepage: https://github.com/Julientalbot/hermes-fleet-policy
@@ -9,6 +9,7 @@ tags: [automation, managed-scope, fleet, observability, cron, monitor, mcp]
 requires_hermes: ">=0.21.5"
 provides_tools: []
 provides_hooks:
+  - pre_tool_call
   - pre_api_request
   - pre_auxiliary_call
 provides_middleware:
@@ -26,3 +27,7 @@ config_schema:
     type: list
     default: []
     description: "Optional allow-list of model ids for cron job pins; `hermes fleet-policy crons` flags pins outside it."
+  max_ungated_interval_minutes:
+    type: int
+    default: 0
+    description: "Creation-time cron gate. > 0: a cronjob_manage create/update/resume whose job would run the agent more often than every N minutes with no gate (script wakeAgent, monitor, no_agent) is refused, and the model is told how to build the gated shape (skill recurring-tasks). 0 = off."

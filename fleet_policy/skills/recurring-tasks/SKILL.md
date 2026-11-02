@@ -1,7 +1,7 @@
 ---
 name: recurring-tasks
 description: Watch jobs that wake the model only on new items.
-version: 0.2.1
+version: 0.3.0
 author: Julien Talbot
 license: MIT
 metadata:
@@ -22,6 +22,10 @@ that checks something on a schedule. Builds on the stock cron gates (`script` +
 woken only when there is something new to judge. Never create a full agent run on a fixed
 interval to watch something (e.g. "every 15 min: check my inbox and tell me if…"): most runs
 find nothing and still cost a full turn.
+
+If your administrator set `max_ungated_interval_minutes`, an ungated agent job more frequent
+than that is refused at creation with a message pointing here: build the gated shape below and
+retry, without asking the user again (their request does not change).
 
 ## Pick the shape
 

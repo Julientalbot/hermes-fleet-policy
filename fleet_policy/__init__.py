@@ -9,7 +9,7 @@ managed-scope state, the effective config and the cron jobs::
     hermes fleet-policy crons --json [--cost]
     hermes fleet-policy watch --config <watch.json> [--dry-run]
 
-Public surfaces only: ``ctx.register_hook``, ``ctx.register_middleware`` (observer pass-through),
+Public surfaces only: ``ctx.register_hook`` (incl. a ``pre_tool_call`` cron gate), ``ctx.register_middleware`` (observer pass-through),
 ``ctx.register_cli_command``, ``ctx.register_skill``, ``ctx.get_config``; plus the public
 ``hermes_cli.config.load_config``, ``hermes_cli.managed_scope`` and ``cron.jobs.list_jobs``
 functions at CLI time. No core object is patched.
@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-__version__ = "0.2.1"
+__version__ = "0.3.0"
 PLUGIN_NAME = "fleet-policy"
 SKILLS = (
     ("fleet-policy-admin", "Administer a managed Hermes policy and verify it."),
@@ -47,6 +47,12 @@ def register(ctx) -> None:
 
     def _setting(key, default=None):
         return ctx.get_config(key, default)
+
+    # Creation-time gate (off unless max_ungated_interval_minutes > 0): refuses an ungated agent job
+    # that would run more often than the admin allows, and points the model at recurring-tasks.
+    from . import gate
+
+    ctx.register_hook("pre_tool_call", gate.make_hook(_setting))
 
     ctx.register_cli_command(
         name=PLUGIN_NAME,

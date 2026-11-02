@@ -29,6 +29,7 @@ def test_register_everything():
     ctx = Ctx()
     fleet_policy.register(ctx)
     assert set(ctx.skills) == {"fleet-policy-admin", "recurring-tasks"}
+    assert "pre_tool_call" in ctx.hooks
     assert ctx.commands[0]["name"] == "fleet-policy"
     parser = argparse.ArgumentParser()
     ctx.commands[0]["setup_fn"](parser)
